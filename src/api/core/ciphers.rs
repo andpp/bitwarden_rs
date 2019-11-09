@@ -648,7 +648,10 @@ fn post_attachment(
     if !cipher.is_write_accessible_to_user(&headers.user.uuid, &conn) {
         err_discard!("Cipher is not write accessible", data)
     }
-    
+
+    // TODO: Multipart upload not supported in async
+    err!("Multipart upload not supported in async")
+    /*
     let mut params = content_type.params();
     let boundary_pair = params.next().expect("No boundary provided");
     let boundary = boundary_pair.1;
@@ -738,6 +741,7 @@ fn post_attachment(
     nt.send_cipher_update(UpdateType::CipherUpdate, &cipher, &cipher.update_users_revision(&conn));
 
     Ok(Json(cipher.to_json(&headers.host, &headers.user.uuid, &conn)))
+    */
 }
 
 #[post("/ciphers/<uuid>/attachment-admin", format = "multipart/form-data", data = "<data>")]
