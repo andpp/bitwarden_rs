@@ -17,7 +17,7 @@ use crate::mail;
 use crate::CONFIG;
 
 pub fn routes() -> Vec<Route> {
-    if CONFIG.admin_token().is_none() && !CONFIG.disable_admin_token() {
+    if !CONFIG.disable_admin_token() && !CONFIG.is_admin_token_set() {
         return routes![admin_disabled];
     }
 
@@ -51,7 +51,7 @@ const COOKIE_NAME: &str = "BWRS_ADMIN";
 const ADMIN_PATH: &str = "/admin";
 
 const BASE_TEMPLATE: &str = "admin/base";
-const VERSION: Option<&str> = option_env!("GIT_VERSION");
+const VERSION: Option<&str> = option_env!("BWRS_VERSION");
 
 fn admin_path() -> String {
     format!("{}{}", CONFIG.domain_path(), ADMIN_PATH)

@@ -7,6 +7,7 @@ use super::{
 
 #[derive(Debug, Identifiable, Queryable, Insertable, Associations, AsChangeset)]
 #[table_name = "ciphers"]
+#[changeset_options(treat_none_as_null="true")]
 #[belongs_to(User, foreign_key = "user_uuid")]
 #[belongs_to(Organization, foreign_key = "organization_uuid")]
 #[primary_key(uuid)]
@@ -33,6 +34,7 @@ pub struct Cipher {
 
     pub favorite: bool,
     pub password_history: Option<String>,
+    pub deleted_at: Option<NaiveDateTime>,
 }
 
 /// Local methods
@@ -57,6 +59,7 @@ impl Cipher {
 
             data: String::new(),
             password_history: None,
+            deleted_at: None,
         }
     }
 }
@@ -80,7 +83,19 @@ impl Cipher {
         let fields_json = self.fields.as_ref().and_then(|s| serde_json::from_str(s).ok()).unwrap_or(Value::Null);
         let password_history_json = self.password_history.as_ref().and_then(|s| serde_json::from_str(s).ok()).unwrap_or(Value::Null);
 
-        let mut data_json: Value = serde_json::from_str(&self.data).unwrap_or(Value::Null);
+        // Get the data or a default empty value to avoid issues with the mobile apps
+        let mut data_json: Value = serde_json::from_str(&self.data).unwrap_or_else(|_| json!({
+            "Fields":null,
+            "Name": self.name,
+            "Notes":null,
+            "Password":null,
+            "PasswordHistory":null,
+            "PasswordRevisionDate":null,
+            "Response":null,
+            "Totp":null,
+            "Uris":null,
+            "Username":null
+        }));
 
         // TODO: ******* Backwards compat start **********
         // To remove backwards compatibility, just remove this entire section
@@ -95,6 +110,7 @@ impl Cipher {
             "Id": self.uuid,
             "Type": self.atype,
             "RevisionDate": format_date(&self.updated_at),
+            "DeletedDate": self.deleted_at.map_or(Value::Null, |d| Value::String(format_date(&d))),
             "FolderId": self.get_folder_uuid(&user_uuid, &conn),
             "Favorite": self.favorite,
             "OrganizationId": self.organization_uuid,

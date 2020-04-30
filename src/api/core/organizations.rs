@@ -47,6 +47,7 @@ pub fn routes() -> Vec<Route> {
         post_delete_user,
         post_org_import,
         list_policies,
+        list_policies_token,
         get_policy,
         put_policy,
     ]
@@ -484,7 +485,11 @@ fn send_invite(org_id: String, data: JsonUpcase<InviteData>, headers: AdminHeade
         let user = match User::find_by_mail(&email, &conn) {
             None => {
                 if !CONFIG.invitations_allowed() {
-                    err!(format!("User email does not exist: {}", email))
+                    err!(format!("User does not exist: {}", email))
+                }
+
+                if !CONFIG.signups_domains_whitelist().is_empty() && !CONFIG.is_email_domain_whitelisted(&email) {
+                    err!("Email domain not eligible for invitations")
                 }
 
                 if !CONFIG.mail_enabled() {
@@ -901,6 +906,30 @@ fn post_org_import(
 
 #[get("/organizations/<org_id>/policies")]
 fn list_policies(org_id: String, _headers: AdminHeaders, conn: DbConn) -> JsonResult {
+    let policies = OrgPolicy::find_by_org(&org_id, &conn);
+    let policies_json: Vec<Value> = policies.iter().map(OrgPolicy::to_json).collect();
+
+    Ok(Json(json!({
+        "Data": policies_json,
+        "Object": "list",
+        "ContinuationToken": null
+    })))
+}
+
+#[get("/organizations/<org_id>/policies/token?<token>")]
+fn list_policies_token(org_id: String, token: String, conn: DbConn) -> JsonResult {
+    let invite = crate::auth::decode_invite(&token)?;
+
+    let invite_org_id = match invite.org_id {
+        Some(invite_org_id) => invite_org_id,
+        None => err!("Invalid token"),
+    };
+
+    if invite_org_id != org_id {
+        err!("Token doesn't match request organization");
+    }
+    
+    // TODO: We receive the invite token as ?token=<>, validate it contains the org id
     let policies = OrgPolicy::find_by_org(&org_id, &conn);
     let policies_json: Vec<Value> = policies.iter().map(OrgPolicy::to_json).collect();
 
